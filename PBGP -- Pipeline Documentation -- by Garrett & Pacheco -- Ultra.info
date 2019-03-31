@@ -1,0 +1,772 @@
+#####                                                                                          #####
+# PBGP | Re-Sequencing + GBS Data Pipeline | Ultra Documentation - by Vieira F. G. & Pacheco G.    #
+#####                                                                                          #####
+
+## Documention outlining the entire reasoning behind this pipeline. 
+## Please, contact 'george.pacheco@snm.ku.dk' should any question arise.
+****************************************************************************************************
+
+###                                         ###
+# ACCESS TO RAW DATA AND LOCAL STORAGE | ERDA #
+###                                         ###
+
+## The GBS raw data was directly downloaded from the Institute of Biotechnology | University of Cornell's server using an ordinary "-wget" command and it is now stored on ERDA KU under George's account (DQM353). The MD5SUM numbers were confirmed for all downloaded files.
+****************************************************************************************************
+
+###                                         ###
+# SEQUENCING QUALITY CHECK | FASTQc--v0.11.5  #
+###                                         ###
+
+## A general sequencing quality check of each plate was performed using the software FastQC using default options. We considered that all sequenced lanes passed this general quality check. The results for each lane are stored inside their respective folders:
+
+~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1A/PBGP_1A-C6H23ANXX_8_Fastqced--v0.11.5/
+~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1B/PBGP_1B-C6GGGANXX_7_Fastqced--v0.11.5/
+~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_2/PBGP_2-C6GGGANXX_8_Fastqced--v0.11.5/
+~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1-2_ReRun/PBGP_1-2_ReRun-C7U8CANXX_2_Fastqced--v0.11.5/
+****************************************************************************************************
+
+###                         ###
+# DEMULTIPLEXING | GBSX--v1.3 #
+###                         ###
+
+## The software GBSX--v1.3 was used to demultiplex the data based on the barcode info in the respective key files. The idea was to minimally filter the reads here leaving this task to be performed by PaleoMix in the run that will follow:
+
+# PBGP_1A:
+xsbatch -c XXX --time XXX -J PBGP_1A -- java -jar $SOFT/GBSX/releases/latest/GBSX_v1.3.jar --Demultiplexer -t XXX -f1 ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1A/PBGP_1A-C6H23ANXX_8_fastq.gz -i ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1A/PBGP_1A-C6H23ANXX_8_Barcodes.info -mb 1 -me 1 -ca false -gzip true -o ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1A/PBGP_1A-C6H23ANXX_8_Demultiplexed_GBSX--v1.3/
+
+# PBGP_1B:
+xsbatch -c 22 --time 2-00 -J PBGP_1B -- java -jar $SOFT/GBSX/releases/latest/GBSX_v1.3.jar --Demultiplexer -t 22 -f1 ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1B/PBGP_1B-C6GGGANXX_7_fastq.gz -i ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1B/PBGP_1B-C6GGGANXX_7_Barcodes.info -mb 1 -me 1 -ca false -gzip true -o ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1B/PBGP_1B-C6GGGANXX_7_Demultiplexed_GBSX--v1.3/
+
+# PBGP_2:
+xsbatch -c XXX --time XXX -J PBGP_2 -- java -jar $SOFT/GBSX/releases/latest/GBSX_v1.3.jar --Demultiplexer -t XXX -f1 ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_2/PBGP_2-C6GGGANXX_8_fastq.gz -i ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_2/PBGP_2-C6GGGANXX_8_Barcodes.info -mb 1 -me 1 -ca false -gzip true -o ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_2/PBGP_2-C6GGGANXX_8_Demultiplexed_GBSX--v1.3/
+
+# PBGP_1-2:
+xsbatch -c 20 --time 2-00 -J PBGP_1-2 -- java -jar $SOFT/GBSX/releases/latest/GBSX_v1.3.jar --Demultiplexer -t 20 -f1 ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1-2_ReRun/PBGP_1-2_ReRun-C7U8CANXX_2_fastq.gz -i ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1-2_ReRun/PBGP_1-2_ReRun-C7U8CANXX_2_Barcodes.info -mb 1 -me 1 -ca false -gzip true -o ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1-2_ReRun/PBGP_1-2_ReRun-C7U8CANXX_2_Demultiplexed_GBSX--v1.3/
+
+## An ordinary "-mv" command was used to eliminate the ".R1" appendix of each demultiplexed file.
+
+# Example:
+mv ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1-2_ReRun/PBGP_1-2_ReRun-C7U8CANXX_2_Demultiplexed_GBSX--v1.3/SyrianDewlap_01.R1.fastq.gz ~/data/Pigeons/PBGP/PBGP--GBS_Data/PBGP_1-2_ReRun/PBGP_1-2_ReRun-C7U8CANXX_2_Demultiplexed_GBSX--v1.3/SyrianDewlap_01.fastq.gz
+****************************************************************************************************
+
+###                ###
+# CREATING BED FILES #
+###                ###
+
+## We created different BED files aiming to look at the data in different ways:
+
+# PBGP_FinalRun.EcoT22I.bed (390.028 LOCI): To create BED file contaning all the EcoT22I cutsites present in the improved Pigeon Genome (DanishTumbler_Dovetail_ReRun.fasta):
+
+$SCRIPTS/appz/p5-bpwrapper/bin/bioseq --restrict-coord EcoT22I ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I.bed
+
+# PBGP_FinalRun.EcoT22I_Extended.bed (780.056 LOCI): To extend BED file (PBGP_FinalRun.EcoT22I.bed) adding LOCI IDs and differentiating strands:
+
+awk 'BEGIN{cnt=0;OFS="\t"} {print $1,$2,$2,"RS_FPGP_"cnt"p\t0\t+";print $1,$3,$3,"RS_FPGP_"cnt++"m\t0\t-"}' ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I.bed | slopBed -s -l 0 -r 91 -g ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta.fai | sortBed > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended.bed
+
+# PBGP_FinalRun.EcoT22I_Extended_Merged.bed (356.551 LOCI): Created to specifically be used when calculating coverage taking in account overlapping regions within PBGP_FinalRun.EcoT22I_Extended.bed:
+
+bedtools merge -i ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended.bed -c 4 -o distinct > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.bed
+
+# Then, we create a POS file based on this BED file:
+
+awk '{print $1"\t"($2+1)"\t"$3}' ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.bed > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.pos
+
+# Finally, we calculate what is the percentage of the Pigeon Genome covered by this POS file:
+
+cat ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.pos | awk '{sum+=($3-$2)*100/1111661097} END {print sum"%"}'
+
+-> PBGP_FinalRun.EcoT22I_Extended_Merged: 5.90195%
+****************************************************************************************************
+
+###                          ###
+# FILTERING FOR CHIMERIC READS #
+###                          ###
+
+## We noticed that some GBSed reads seemed to be chimeric ones (the merging of the two or more biological cutsites into one single read). Even thought we cannot fully explain the biochemistry behind this methodological issue, we decided to be conservative and exclude all the reads that presented this kind of signal. 
+
+# We first executed an inicial PaleoMix--v1.2.5 run with the original GBSed demultiplexed files in order to be able to indetify the chemeric reads. We used the YAML file below with the following parameters:
+
+xsbatch -c XXX --mem-per-cpu XXX -J PaleoMix --time XXX -- bam_pipeline run --jre-option "-XmxXXXg" --max-threads XXX --bwa-max-threads XXX --adapterremoval-max-threads XXX --destination ~/data/Pigeons/Analysis/PaleoMix_GBS_BEFORE-FILTEREDCHIMERAS/ ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Final_PaleoMix_GBS_BEFORE-FILTEREDCHIMERAS_AfterCorrection.yaml
+
+# Then we generate an ID file for each sample contained the reads that should be excluded, which were reads having a second or more cut-site and that mapped to two or more different regions:
+
+parallel --plus --keep-order --dryrun "samtools view {} | grep -v '^#' | awk '\$6~/[HS]/ && \$10~/ATGCAT/{print \$1}' | sort -u > $TMP_DIR/{/...}.Chimeras.id" ::: ~/data/Pigeons/Analysis/PaleoMix_GBS_BEFORE-FILTEREDCHIMERAS/*.bam | xsbatch -R --max-array-jobs XXX -c 1 --time XXX --
+
+# Finally, we excluded these identified reads using the software package QIIME--v1.9.1. A filtered "fastq.gz" file is created inside the respectives folders of each original demultiplexed files.
+
+module load blast/v2.2.26
+module load qiime/v1.9.1
+ls ~/data/Pigeons/GBS/FPGP_*/*_Demultiplexed_GBSX--v1.3/*_!(*Undetermined).fastq.gz | parallel --plus --keep-order --dryrun "zcat {} > {.} && filter_fasta.py -f {.} -o {..}.FilteredChimeras.fastq -s $TMP_DIR/{/...}-GBS.Chimeras.id -n && gzip --best {..}.FilteredChimeras.fastq && rm {.}" | xsbatch --mem-per-cpu XXX -R --max-array-jobs XXX -c 1 --time XXX --
+****************************************************************************************************
+
+###         ###
+# GBS SEXING  #
+###         ###
+
+## We took advantage of the improved Pigeon Genome Cliv_2.0 to try to sex our pigeons based on differences of coverage regarding the Z chromosome and an autosomal chromosome of similar size.
+
+# First, we generated a FASTA file including just the Z chromosome:
+
+samtools faidx GCA_001887795.1_colLiv2_genomic.fasta CM007524.1 > GCA_001887795.1_colLiv2_genomic_Z.fasta
+
+# Then, we created a BED fie with our enzume cutsites from this FASTA file:
+
+$SCRIPTS/appz/p5-bpwrapper/bin/bioseq --restrict-coord EcoT22I ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_Z.fasta > ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_Z.bed
+
+> # of CUTSITES: 14,927
+
+# We map this FASTA file against our reference genome:
+
+xsbatch -c 15 --mem-per-cpu 2000 -J Sexing --time 1-00 -- "blastn -num_threads 15 -query ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_Z.fasta -db ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -evalue 1e-5 -perc_identity 95 -outfmt '7 std slen sstrand' > ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_Z--DanishTumbler_Dovetail_ReRun.tsv"
+
+# We select those regions that mapped well enough and create a new BED file out of this selection:
+
+awk '!/#/ && $13>10000 && $4>=1000 && $5/$4<0.01' ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_Z--DanishTumbler_Dovetail_ReRun.tsv | sort -k 2,2 -k 9,9g -k 10,10g | awk '{start=$9; end=$10} $14=="minus"{start=$10; end=$9} {print $2"\t"start"\t"end"\t"$13}' | awk '{x[$1]+=$3-$2+1; s[$1]=$4} END{for(i in x) print i"\t"x[i]"\t"x[i]/s[i]}' | sort -k 3,3gr | awk 'NR>1 && $3>0.9{print $1}' | fgrep -w -f - ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedBadLoci-PossibleParalogs-g650.bed > ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_Z--DanishTumbler_Dovetail_ReRun.bed
+
+# First, we generated a FASTA file including just the 6 chromosome:
+
+samtools faidx GCA_001887795.1_colLiv2_genomic.fasta CM007530.1 > GCA_001887795.1_colLiv2_genomic_6.fasta
+
+# Then, we created a BED fie with our enzume cutsites from this FASTA file:
+
+$SCRIPTS/appz/p5-bpwrapper/bin/bioseq --restrict-coord EcoT22I ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_6.fasta > ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_6.bed
+
+> # of CUTSITES: 13.348
+
+# We map this FASTA file against our reference genome:
+
+xsbatch -c 8 --mem-per-cpu 1024 -J Chr-6 --time 1-00 -- "blastn -num_threads 8 -query ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_6.fasta -db ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -evalue 1e-5 -perc_identity 95 -outfmt '7 std slen sstrand' > ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_6--DanishTumbler_Dovetail_ReRun.tsv"
+
+# We select those regions that mapped well enough and create a new BED file out of this selection:
+
+awk '!/#/ && $13>10000 && $4>=1000 && $5/$4<0.01' ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_6--DanishTumbler_Dovetail_ReRun.tsv | sort -k 2,2 -k 9,9g -k 10,10g | awk '{start=$9; end=$10} $14=="minus"{start=$10; end=$9} {print $2"\t"start"\t"end"\t"$13}' | awk '{x[$1]+=$3-$2+1; s[$1]=$4} END{for(i in x) print i"\t"x[i]"\t"x[i]/s[i]}' | sort -k 3,3gr | awk 'NR>1 && $3>0.9{print $1}' | fgrep -w -f - ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedBadLoci-PossibleParalogs-g650.bed > ~/data/Pigeons/Reference/GCA_001887795.1_colLiv2_genomic_6--DanishTumbler_Dovetail_ReRun.bed
+
+# Finally, we use these two BED files in the mapping that following and later compare the coverages obtained. 
+****************************************************************************************************
+
+###                                        ###
+# READ TRIMMING & MAPPING | PaleoMix--v1.2.5 #
+###                                        ###
+
+## GBSed Samples:
+
+# Basically, we run the very same ".yaml" file used in the inicial GBSed run here, the only difference being of course that now we used the filtered ".fastq.gz" files. Please notice that PCR duplicates are NOT removed here!
+
+xsbatch -c XXX --mem-per-cpu XXX -J GBS --time XXX -- bam_pipeline run --jre-option "-XmxXXXg" --max-threads XXX --bwa-max-threads XXX --adapterremoval-max-threads XXX --destination ~/data/Pigeons/PBGP/Analyses/PaleoMix_GBS/ ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Final_PaleoMix_GBS.yaml
+
+## Re-Seqed Samples:
+
+# Please notice that PCR duplicates ARE removed here!
+
+xsbatch -c XXX --mem-per-cpu XXX -J Re-Seq --time XXX -- bam_pipeline run --jre-option "-XmxXXXg" --max-threads XXX --bwa-max-threads XXX --adapterremoval-max-threads XXX --destination ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/ ~/data/Pigeons/Analysis/FPGP--Final_PaleoMix_Re-Sequencing.yaml
+****************************************************************************************************
+
+###                   ###
+# RUNNING STATS & PLOTS #
+###                   ###
+
+## Here we perform several statistical calculations and create HeatMap plots based on the presence/absence of data.
+
+# Considering ALL SAMPLES (244) and ALL LOCI (780.056) and the Merged_LOCI (356.551):
+
+xsbatch -c 30 --mem-per-cpu 13000 -J HeatMap --time 5-00 -- "$SCRIPTS/scripts/paleomix_summary2tsv.sh -t 30 -n 10 -k 300 -i ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--AllSamples--Article.labels ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/ ~/data/Pigeons/Analysis/PaleoMix_GBS/ > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--CoverageHeatMap/Stats_PBGP--Article--Ultra.txt"
+
+# We locally plot these results using the Rscript below:
+
+> PBGP--ToPlot_Sample-LociHeatmap.R
+
+## Cut-sites Information
+
+grep -v "WGS" ~/data/Pigeons/PBGP/FPGP--Analyses/PBGP--CoverageHeatMap/Loci_Merged.coverage.tsv | grep -v "Blank" | tail -n +2 | cut -f 2- | awk '{for(i=1; i<=NF; i++)x[i]+=$i} END{for(i in x)print x[i]}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--CoverageHeatMap/Loci_Merged.coverage.cutsitesmath
+
+awk '$1==0{cnt++} END{print cnt}' ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--CoverageHeatMap/Loci_Merged.coverage.cutsitesmath
+
+> # of LOCI with No data for ALL: 288,319
+****************************************************************************************************
+
+###                                                 ###
+# FILTERING OF BAD SAMPLES & CREATING AUXILIARY FILES #
+###                                                 ###
+
+# Here we manually create differnet lists containing SAMPLES to be excluded. Please notice that the 6 BAD GBS SAMPLES and 2 BLANKS are highlighted in the Coverage HeatMap:
+
+~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--BadSamples--Article.list (8 SAMPLES / 2 BLANKS)
+
+# To create an ID file containing only scaffolds > 1kb:
+
+awk '$2 > 1000 {print $1":"}' ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta.fai > ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id
+****************************************************************************************************
+
+###                            ###
+# FILTERING OF POSSIBLE PARALOGS #
+###                            ###
+
+## Given the difficulties to remove possible paralogs from GBSed data, we decided to take advantage of our Re-Seqed data for doing so. Thus, we frist run ANGSD on the complete Re-Reqed data in order to identify loci that would have a coverage considerably higher than average and then exclude these loci from the "FPGP_FinalRun.EcoT22I_Extended_Merged_RemovedBadLoci.bed" file.
+
+# To get specific BAM list -- ALL ReSeq SAMPLES /// (52 SAMPLES):
+
+find ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/*.bam > ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--AllRe-SeqedSamples--Article--Ultra.list
+
+# We then un ANGSD in order to get the global depth per SITE: 
+
+xsbatch -c 64 --mem-per-cpu 7800 -J ppAllRe-Seqed --time 10-00:00 --force -- $SCRIPTS/scripts/wrapper_angsd.sh -debug 2 -nThreads 64 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodRe-SeqedSamples--Article.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -doQsDist 1 -doCounts 1 -doDepth 1 -dumpCounts 2 -maxDepth $((50*1000)) -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--OnlyRe-Seqed_RemovedBadLoci_100Ind_PossibleParalogs--Article--Ultra.depth
+
+# Second, we create a ".mean" file containing the AVERAGE GLOBAL DEPTH of each LOCI:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--OnlyRe-Seqed_RemovedBadLoci_100Ind_PossibleParalogs--Article--Ultra.depth.pos.gz | awk 'NR>1 {print $1"\t"$2-1"\t"$2"\t"$3}' | bedtools intersect -a - -b ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.bed -wb | bedtools groupby -g 8 -c 4 -o mean > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--OnlyRe-Seqed_100Ind_PossibleParalogs_IntersectedWithMerged--Article--Ultra.mean
+
+# Third, we locally plot this ".mean" file using the R Script below and we deliberate on a maximum GLOBAL DEPTH cutoff:
+
+> ToPlotGlobalCov_ReSeq.R
+
+# Fourth, we run the line below to create lists containing the POSSIBLE PARALOG LOCI to be eliminated following different cutoffs:
+
+cat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--OnlyRe-Seqed_100Ind_PossibleParalogs_IntersectedWithMerged--Article--Ultra.mean | awk '$2>800 {print $1}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--PossibleParalogLociToBeEliminated-g800--Article--Ultra.list
+
+# Then, we extract from the "FPGP_FinalRun.EcoT22I_Extended_Merged_RemovedBadLoci.bed" file those POSSIBLE PARALOG LOCI, creating an updated ".bed" file:
+
+fgrep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--PossibleParalogLociToBeEliminated-g800--Article--Ultra.list ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.bed > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.bed
+
+# Then, we create a now POS file based on the just updated BED file and index it usings ANGSD:
+
+awk '{print $1"\t"($2+1)"\t"$3}' ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.bed > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos
+angsd sites index ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos
+
+# Finally, we calculate what is the percentage of the Pigeon Genome covered by this POS file:
+
+cat ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos | awk '{sum+=($3-$2)*100/1111661097} END {print sum"%"}'
+
+> PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800: 5.87555%
+****************************************************************************************************
+
+###                                   ###
+# MERGING OF WGS-GBS CASES (23 SAMPLES) #
+###                                   ###
+
+## Merging of BAMs
+
+SampleNames="AfricanOwl_01 Archangel_01 BerlinLongFacedTumbler_01 BirminghamRoller_01 Carneau_01 Cumulet_01 EgyptianSwift_01 EnglishTrumpeter_01 FeralUT_01 IndianFantail_01 IndianFantail_02 IranianTumbler_01 Jacobin_01 Laugher_01 Lebanon_01 MarcheneroPouter_01 Mookee_01 OrientalRoller_01 ParlorRoller_01 RacingHomer_01 SaxonMonk_01 Shakhsharli_01 SyrianDewlap_01"
+WGS="~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/"
+GBS="~/data/Pigeons/Analysis/PaleoMix_GBS/"
+Pairs="~/data/Pigeons/Analysis/Samtools_WGS-GBS/"
+
+for query in $SampleNames
+do
+    echo samtools merge ${Pairs}/${query}-WGS-GBS.RockDove_DoveTail_ReRun.realigned.bam ${WGS}/${query}-WGS.RockDove_DoveTail_ReRun.realigned.bam ${GBS}/${query}-GBS.RockDove_DoveTail_ReRun.realigned.bam
+    
+done | xsbatch -c 1 -R --max-array-jobs 25 --mem-per-cpu 7000 -J Pairs --time 1-00 --
+
+## Indexing of BAMs
+
+SampleNames="AfricanOwl_01 Archangel_01 BerlinLongFacedTumbler_01 BirminghamRoller_01 Carneau_01 Cumulet_01 EgyptianSwift_01 EnglishTrumpeter_01 FeralUT_01 IndianFantail_01 IndianFantail_02 IranianTumbler_01 Jacobin_01 Laugher_01 Lebanon_01 MarcheneroPouter_01 Mookee_01 OrientalRoller_01 ParlorRoller_01 RacingHomer_01 SaxonMonk_01 Shakhsharli_01 SyrianDewlap_01"
+WGS="~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing"
+GBS="~/data/Pigeons/Analysis/PaleoMix_GBS"
+Pairs="~/data/Pigeons/Analysis/Samtools_WGS-GBS"
+
+for query in $SampleNames
+do
+    echo samtools index ${Pairs}/${query}-WGS-GBS.RockDove_DoveTail_ReRun.realigned.bam
+    
+done | xsbatch -c 1 -R --max-array-jobs 1 --mem-per-cpu 2024 -J Index --time 1-00 --
+****************************************************************************************************
+
+###                                             ###
+# INVESTIGATION OF FILTERING OF POSSIBLE PARALOGS #
+###                                             ###
+
+# To get specific BAM list -- ALL GOOD SAMPLES with ALL the WGS_GBS_WGS-GBS Trios (257 SAMPLES /// 184 GBS 50 WGS & 23 WGS-GBS):
+
+find ~/data/Pigeons/Analysis/PaleoMix_GBS/*.bam ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/*.bam ~/data/Pigeons/Analysis/Samtools_WGS-GBS/*.bam | grep -f ~/data/Pigeons/Analysis/Lists/ALL_Re-Seqed-GBSBreedPlates--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--BadSamples--Article.list > ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.list
+
+## We first perform an ANGSD pre-run in order to better investigate the filtering of POSSIBLE PARALOG LOCI:
+
+# Having ALL GOOD SAMPLES (257) and ALL MERGED LOCI (356.551):
+
+xsbatch -c 64 --mem-per-cpu 7500 -J pptPBGP --time 10-00 --force -- $SCRIPTS/scripts/wrapper_angsd.sh -debug 2 -nThreads 64 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -minInd $((257*95/100)) -doCounts 1 -dumpCounts 2 -maxDepth $((257*1000)) -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.depth
+ 
+## In order to compare the Global Depth curves before and after filtering of POSSIBLE PARALOG LOCI, we create the respective ".mean" files:
+
+# First, we create a ".mean" file containing the average GLOBAL DEPTH of each outputted LOCI:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.depth.pos.gz | awk 'NR>1 {print $1"\t"$2-1"\t"$2"\t"$3}' | bedtools intersect -a - -b ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged.bed -wb | bedtools groupby -g 8 -c 4 -o mean > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs_95Ind_ParalogTest_IntersectedWithMerged--Article--Ultra.mean
+
+# Here we extract those LOCI that were flaged as POSSIBLE PARALOGS:
+
+fgrep -f ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--PossibleParalogLociToBeEliminated-g800--Article--Ultra.list ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs_95Ind_ParalogTest_IntersectedWithMerged--Article--Ultra.mean | awk '{print $1"\t"$2-1"\t"$2"\t"$3}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs_95Ind_ParalogTest_IntersectedWithMerged_PossibleParalogs-g800--Article--Ultra.mean
+
+# Here we extract those LOCI that were NOT flaged as POSSIBLE PARALOGS:
+
+fgrep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--PossibleParalogLociToBeEliminated-g800--Article--Ultra.list ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs_95Ind_ParalogTest_IntersectedWithMerged--Article--Ultra.mean | awk '{print $1"\t"$2-1"\t"$2"\t"$3}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PossibleParalogTest/PBGP--GoodSamples_WithAllWGS-GBSPairs_95Ind_ParalogTest_IntersectedWithMerged_WithoutPossibleParalogs-g800--Article--Ultra.mean
+
+# Finally, we locally plot both ".mean" files using the Rscript below:
+
+> PBGP--ToPlotGlobalCov_PossibleParalogTest.R
+****************************************************************************************************
+
+###                      ###
+# PHYLOGENY RECONSTRUCTION #
+###                      ###
+                     
+### Sites Calling | ANGSD--v0.921 ###
+
+## We use the pipeline ANGSD to identify variants in different ways. 
+
+# No SNP Calling | ALL GOOD SAMPLES With ALL WGS, GBS, WGS-GBS Trios (257 SAMPLES /// 184 GBS / 50 WGS / 23 WGS-GBS): 
+
+xsbatch -c 64 --mem-per-cpu 7800 -J PBGP_AllSites --time 5-00 --force -- $SCRIPTS/scripts/wrapper_angsd.sh -debug 2 -nThreads 64 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -minInd $((257*95/100)) -doCounts 1 -GL 1 -doGlf 2 -doMajorMinor 1 -doMaf 1 -doPost 2 -doGeno 3 -doPlink 2 -geno_minDepth 3 -setMaxDepth $((257*275)) -dumpCounts 2 -postCutoff 0.95 -doHaploCall 1 -doVcf 1 -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra
+
+> # of SITES: 1,997,420
+
+### SITES INFO ###
+
+## Here we calculate the number of scaffolds with at least one SNP:
+
+zcat /groups/hologenomics/pacheco/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.mafs.gz | tail -n +2 | sort -u -k 1,1 | wc -l
+
+> PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra: 298 scaffolds.
+
+## We here calculate the SNP density using ordinary scripts based on the relevant files below:
+
+zcat /groups/hologenomics/pacheco/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.mafs.gz | tail -n +2 | cut -f1 | sort | uniq -c | awk '{print $2"\t"$1}' | sort -n -k 2,2 > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.SITESDensity.txt
+
+awk 'BEGIN{OFS="\t"} NR==FNR{x[$1]=$2} NR!=FNR && $2>1000{if(!x[$1])x[$1]=0; print $1,$2,x[$1]}' ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.SITESDensity.txt ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta.fai | sort -n -k 2,2 > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ScaffoldInfo.txt
+
+awk '{if ($3!=0) print;}' ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ScaffoldInfo.txt > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ScaffoldInfo_OnlyWithSites.txt
+
+# We locally plot these results using the Rscript below:
+
+> PBGP -- To Plot ScaffoldLength-NumberOfSNPs -- by George Pacheco.R
+
+#### REAL COVERAGE CALCULATION ####
+
+## Here we calculate de average real coverage for each site based on the file COUNTS outputed by ANGSD: 
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.counts.gz | tail -n +2 | gawk ' {for (i=1;i<=NF;i++){a[i]+=$i;++count[i]}} END{ for(i=1;i<=NF;i++){print a[i]/count[i]}}' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.labels - > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/RealCoverage/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.txt
+
+### MISSING DATA CALCULATION ###
+
+## Here we calculate the missing data proportions for each SAMPLE:
+
+# ALL SITES Genotype Likelihoods:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.beagle.gz | tail -n +2 | perl /groups/hologenomics/fgvieira/scripts/call_geno.pl --skip 3 | cut -f 4- | awk '{ for(i=1;i<=NF; i++){ if($i==-1)x[i]++} } END{ for(i=1;i<=NF; i++) print i"\t"x[i] }' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.labels - | awk '{print $1"\t"$3"\t"$3*100/1997420}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/MissingDataCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.GL-Missing.txt
+
+# ALL SITES Random Haplotype Calling:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.haplo.gz | cut -f 4- | tail -n +2 | awk '{ for(i=1;i<=NF; i++){ if($i=="N")x[i]++} } END{ for(i=1;i<=NF; i++) print i"\t"x[i] }' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.labels - | awk '{print $1"\t"$3"\t"$3*100/1997420}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/MissingDataCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.RHC-Missing.txt
+
+#### HETEROZYGOSITY CALCULATION ####
+
+## Here we calculate the percentage of heterozygous genotypes in our NoSNPCalling sites.
+
+# First we generate a '.bed' file based on the '.mafs' of this run:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.mafs.gz | cut -f1,2 | tail -n +2 | awk '{print $1"\t"$2-1"\t"$2}' | bedtools merge -i - > ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.bed
+
+# After we create a position file based on this new  '.bed' and index it accordingly usings ANGSD:
+
+awk '{print $1"\t"($2+1)"\t"$3}' ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.bed > ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.pos
+angsd sites index ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.pos
+
+# Getting files:
+
+parallel --plus --dryrun angsd -i {} -anc ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -sites ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -GL 1 -doSaf 1 -fold 1 -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -out ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/{/...} :::: ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.list | xsbatch -R --max-array-jobs 60 -c 1 --time 10-00 --mem-per-cpu 6024 -J HetCalc --
+
+# Getting fractions:
+
+parallel --plus "realSFS {} > ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/{/..}.het" ::: ~/data/Pigeons/PBGP/PBGP--Analyses/Miscellaneous/HeterozygosityCalc/*.saf.idx
+
+# Finally, we calculate the percentage of heterozygous sites:
+
+fgrep '.' *.het | tr ":" " " | awk '{print $1"\t"$3/($2+$3)*100}' | gawk '{match($1,/(GBS|WGS|WGS\-GBS)/,lol);print $1"\t"$2"\t"lol[1]}' | sort -k 1,1gr | awk '{split($0,a,"_"); print $1"\t"a[1]"\t"$2"\t"$3'} > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/HeterozygosityCalc/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.Heterozygosity.txt
+
+# We locally plot these results using the Rscript below:
+
+> PBGP--ToPlotProportionOfHeterozygousSites.R
+
+### NJ PHYLOGENY | ngsDist--v, FASTme--v2.1.5 + RAxML-NG--v0.5.1b ###
+
+## We generate here a NJ phylogeny reconstrution using a combination of several programs. This approach is better described here: 'https://github.com/fgvieira/ngsDist'
+
+# First, we generate a 100 matrixes of genetic distances:
+
+xsbatch -c 34 --mem-per-cpu 2000 -J Dist_Corr --time 3-00 -- "ngsDist --n_threads 34 --geno ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.beagle.gz --pairwise_del --seed 33 --probs --n_ind 257 --n_sites 1997420 --labels ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.labels --out ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/NJ/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.dist"
+
+# Here we twick a bit the matrix of distances created above:
+
+perl -p -e 's/\t/ /g' ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/NJ/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.dist > ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/NJ/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra_Changed.dist
+
+# Finally, we generate NJ phylogenies runnning 100 boot-strap replicates.
+
+fastme -T 15 -i ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/NJ/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra_Changed.dist -s -o ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/NJ/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.nwk
+
+### ML PHYLOGENY | RAxML-NG--v0.5.1b ###
+
+## We generate here a ML phylogeny reconstrution using the software RaxML-NG.
+
+# First we convert the HAPLO file into a FASTA:
+
+xsbatch -c XXX --mem-per-cpu 95000 -J FASTA --time 2-00 -- "zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.haplo.gz | cut -f 4- | tail -n +2 | perl /groups/hologenomics/fgvieira/scripts/tsv_merge.pl --transp --ofs '' - | awk 'NR==FNR{id=$1; sub(".*\\/","",id); sub("\\..*","",id); x[FNR]=id} NR!=FNR{ print ">"x[FNR]"\n"$1}' ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.labels - > ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.fasta"
+
+# Second, we use RAxML-ng to generate a ML phylogeny based on this FASTA alingment having the NJ phylogeny generated above as a backbone:
+
+raxml-ng-mpi --threads XXX --search --model GTR+G --site-repeats on --msa ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs--Article--Ultra.fasta --tree ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/NJ/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.nwk --prefix ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ngsDist
+
+# Then, we use RAxML-ng to bootstrap this generated ML phylogeny:
+
+raxml-ng-mpi --threads XXX --bootstrap --model GTR+G --bs-trees 100 --site-repeats on --msa ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs--Article--Ultra.fasta --tree ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ngsDist.raxml.bestTree --prefix ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.BOOT
+
+# Finally, we add the bootstrap values supports to the generated ML phylogeny:
+
+raxml-ng --threads XXX --support --tree ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ngsDist.raxml.bestTree --bs-trees ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.BOOT.tree --prefix ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.FINAL
+****************************************************************************************************
+
+### Summarize Genetic Distance ###
+
+# First we convert the bestTree into a TSV file:
+
+perl $SCRIPTS/scripts/tree2matrix.pl -i ~/data/Pigeons/PBGP/PBGP--Analyses/Phylogenies/RAxML/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ngsDist.raxml.bestTree | awk '{split($1,sp1,"[_-]"); split($2,sp2,"[_-]"); rel="Inter-breeds"; if(sp1[1]==sp2[1])rel="Intra-breeds"; if(sp1[1]sp1[2]==sp2[1]sp2[2])rel="Intra-replicates"; if(sp1[1]=="Crupestris" || sp2[1]=="Crupestris")rel="Inter-species"; if(NR==1)rel="Relatedness"; print $0"\t"rel}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GeneticDistances/PBGP--GoodSamples_WithAllWGS-GBSPairs--Article--Ultra.ngsDist.raxml.bestTree.tsv
+
+# We locally plot these genetic distances Rscript below:
+
+> PBGP--ToPlot_GeneticDistances--Ultra.R
+****************************************************************************************************
+
+###                            ###
+# POPULATION GENETICS STATISTICS #
+###                            ###
+
+## To create ancestral sequence:
+
+xsbatch -c 12 --mem-per-cpu 2048 -J PBGP_AllSites --time 5-00 --force -- angsd -nThreads 12 -i ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/Crupestris_01-WGS.RockDove_DoveTail_ReRun.realigned.bam -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -doFasta 1 -doCounts 1 -explode 1 -rmTrans 0 -seed 433 -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--PopGenStats/Crupestris_01-WGS.RockDove_DoveTail_ReRun.realigned.Ancestral
+
+## To get list of specific BAMs:
+
+POP=("Archangel" "BirminghamRoller" "ChineseOwl" "EnglishCarrier" "EnglishTrumpeter" "Fantail" "IndianFantail" "HelmetMediumFacedCrested" "OrientalRoller" "RacingHomer" "Starling" "WestofEnglandTumbler")
+
+for query in ${POP[*]}
+do
+
+    find ~/data/Pigeons/Analysis/PaleoMix_GBS/*.bam ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/*.bam | grep -f ~/data/Pigeons/Analysis/Lists/ALL_Re-Seqed-GBSBreedPlates--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--BadSamples--Article--Ultra.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--NoCrupestris--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GBS_Pairs--Article.list | grep ${query} > ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf--Article--Ultra_NEW.list
+    
+done
+
+## To run ANGSD with '-doSaf':
+
+for query in Archangel BirminghamRoller ChineseOwl EnglishCarrier EnglishTrumpeter Fantail IndianFantail HelmetMediumFacedCrested OrientalRoller RacingHomer Starling WestofEnglandTumbler
+
+do
+        N_IND=`cat ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf--Article--Ultra_NEW.list | wc -l`
+
+        echo /groups/hologenomics/fgvieira/scripts/wrapper_angsd.sh -debug 2 -nThreads 12 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -anc ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--PopGenStats/Crupestris_01-WGS.RockDove_DoveTail_ReRun.realigned.Ancestral.fa.gz -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf--Article--Ultra_NEW.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -doCounts 1 -GL 1 -doGlf 2 -doMajorMinor 1 -doMaf 1 -doPost 2 -doSaf 1 -postCutoff 0.95 -doGeno 3 -doPlink 2 -geno_minDepth 3 -dumpCounts 2 -doHaploCall 1 -doVcf 1 -minInd $((N_IND*95/100)) -setMaxDepth $((N_IND*275)) -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper--Article--Ultra_NEW
+done | xsbatch -c 12 --mem-per-cpu 4024 -J doSaf -R --max-array-jobs 12 --time 3-00 --
+
+## To run realSFS:
+
+for query in Archangel BirminghamRoller ChineseOwl EnglishCarrier EnglishTrumpeter Fantail IndianFantail HelmetMediumFacedCrested OrientalRoller RacingHomer Starling WestofEnglandTumbler
+
+do
+    realSFS -P 10 ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper--Article--Ultra_NEW.saf.idx > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper--Article--Ultra_NEW.sfs
+    
+done
+
+## To run ANGSD with '-doThetas ':
+
+for query in Archangel BirminghamRoller ChineseOwl EnglishCarrier EnglishTrumpeter Fantail IndianFantail HelmetMediumFacedCrested OrientalRoller RacingHomer Starling WestofEnglandTumbler
+
+for query in RacingHomer
+
+do
+        N_IND=`cat ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf--Article--Ultra_NEW.list | wc -l`
+
+echo angsd -nThreads 2 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf--Article--Ultra_NEW.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -pest ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper--Article--Ultra_NEW.sfs -anc ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--PopGenStats/Crupestris_01-WGS.RockDove_DoveTail_ReRun.realigned.Ancestral.fa.gz -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -postCutoff 0.95 -doGlf 2 -doGeno 3 -geno_minDepth 3 -doPost 2 -doThetas 1 -doSaf 1 -doCounts 1 -doMajorMinor 1 -doMaf 1 -GL 1 -minInd $((N_IND*95/100)) -setMaxDepth $((N_IND*275)) -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper-DoThetas-NoWrapper--Article--Ultra_NEW
+done | xsbatch -c 2 --mem-per-cpu 10024 -J AllThetas -R --max-array-jobs 1 --time 5-00 --
+
+## To get summary of Thetas:
+
+for query in Archangel BirminghamRoller ChineseOwl EnglishCarrier EnglishTrumpeter Fantail HelmetMediumFacedCrested IndianFantail OrientalRoller RacingHomer Starling WestofEnglandTumbler
+do
+    N_IND=`cat ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf--Article--Ultra_NEW.list | wc -l`
+
+    thetaStat print ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper-DoThetas-NoWrapper--Article--Ultra_NEW.thetas.idx > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper-DoThetas-NoWrapper--Article—Ultra_NEW.thetas.Print
+done
+
+## To perform final calculations:
+
+for query in Archangel BirminghamRoller ChineseOwl EnglishCarrier EnglishTrumpeter Fantail HelmetMediumFacedCrested IndianFantail OrientalRoller RacingHomer Starling WestofEnglandTumbler
+do
+
+    Rscript --vanilla --slave ~/data/Pigeons/FPGP/FPGP--Analyses/FPGP--ANGSDRuns/FPGP--ToGetThetaSummaryFile.R ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_${query}-DoSaf-WithWrapper-DoThetas-NoWrapper--Article—Ultra_NEW.thetas.Print $N_IND $query
+done > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris-DoSaf-WithWrapper-DoThetas-NoWrapper--Article—Ultra_NEW.PopGenSummary.txt
+****************************************************************************************************
+
+###                                                            ###
+# MULTIDIMENSIONAL SCALING | ESTIMATION OF INDIVIDUAL ANCESTRIES #
+###                                                            ###
+
+### Variant Calling | ANGSD--v0.921 ###
+
+## To get specific BAM list -- ALL GOOD SAMPLES with WGS version of the WGS_GBS_WGS-GBS Trios /// (210 SAMPLES / 161 GBS & 49 WGS):
+
+find ~/data/Pigeons/Analysis/PaleoMix_GBS/*.bam ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/*.bam | grep -f ~/data/Pigeons/Analysis/Lists/ALL_Re-Seqed-GBSBreedPlates--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--BadSamples--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--NoCrupestris--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GBS_Pairs--Article.list > ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris--Article--Ultra.list
+
+## To get coverage plot (Will NOT be used unless if required by reviews):
+
+xsbatch -c 64 --mem-per-cpu 7500 -J admixMDSCov --time 3-12 --force -- $SCRIPTS/scripts/wrapper_angsd.sh -debug 2 -nThreads 64 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSPairs_NoCrupestris--Article.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -minInd $((210*95/100)) -doCounts 1 -dumpCounts 2 -maxDepth $((210*1000)) -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSPairs_NoCrupestris--Article.depth
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSPairs_NoCrupestris--Article.depth.pos.gz | awk 'NR>1 {print $1"\t"$2-1"\t"$2"\t"$3}' | bedtools intersect -a - -b ~/data/Pigeons/Reference/~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.bed -wb | bedtools groupby -g 8 -c 4 -o mean > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSPairs_NoCrupestris--Article.mean
+
+## SNP Calling, -MinMaf 0.005: 
+
+xsbatch -c 34 --mem-per-cpu 9200 -J PBGP_SNPs --time 10-00:00 --force -- $SCRIPTS/scripts/wrapper_angsd.sh -debug 2 -nThreads 34 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris--Article--Ultra.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -minInd $((210*95/100)) -doCounts 1 -GL 1 -doGlf 2 -doMajorMinor 1 -doMaf 1 -MinMaf 0.005 -SNP_pval 1e-6 -doPost 2 -doGeno 3 -doPlink 2 -geno_minDepth 3 -setMaxDepth $((210*275)) -dumpCounts 2 -postCutoff 0.95 -doHaploCall 1 -doVcf 1 -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra
+
+> # of SNPs: 26,082
+
+#### SNP INFO ####
+
+## Here we calculate statistics regarding the SNPs reported.
+
+# Average distance between SNPs:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.mafs.gz | cut -f1,2 | tail -n +2 | awk '{print $1"\t"$2-1"\t"$2}' | bedtools merge -i - | bedtools complement -i - -g ~/data/Pigeons/Reference/SamToolsIndex/DanishTumbler_Dovetail_ReRun.Cut.fasta.fai | sort -k 1,1r -k 2,2nr | awk '{sum+=($3-$2)} END {print "Average SNP Distance: " sum/NR}'
+
+> Average SNP Distance: 17,227.4
+
+# Average distance between SNPs:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.mafs.gz | cut -f1,2 | tail -n +2 | awk '{print $1"\t"$2-1"\t"$2}' | bedtools merge -i - | bedtools complement -i - -g ~/data/Pigeons/Reference/SamToolsIndex/DanishTumbler_Dovetail_ReRun.Cut.fasta.fai | sort -k 1,1r -k 2,2nr | awk 'BEGIN{pre=""; safe=""}{if($1!=pre){safe=""}else{if(safe!=""){print safe}safe=$3-$2}pre=$1}' | # awk '{sum+=$1} END { print "Average = ",sum/NR}' # > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.SNPDistances.txt
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.mafs.gz | tail -n +2 | awk '$1 == pc{print $1,$2-pp-1} {pc=$1; pp=$2}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/SNPInfo/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.SNPDistances.txt
+
+# Average distance between CUTSITES:
+
+cat ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I.bed | awk '$1 == pc{print $1,$2-pp} {pc=$1; pp=$3}' > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I--Article--Ultra.CutSiteDistances.txt
+
+wc -l ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I--Article--Ultra.CutSiteDistances.txt
+
+cat ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I--Article--Ultra.CutSiteDistances.txt | awk '{sum+=($2)}'
+
+> # of LOCI: 386,630
+
+awk '{sum+=($2)} END {print "Average: " sum/NR}' ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I--Article--Ultra.CutSiteDistances.txt
+
+> Average: 2,785.51
+
+awk '$2 > 500' ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I--Article--Ultra.CutSiteDistances.txt | wc -l 
+
+> # of LOCI: 311,430
+
+grep -v "WGS" Loci_Merged.coverage.tsv | grep -v "Blank" | tail -n +2 | cut -f 2- | awk '{for(i=1; i<=NF; i++)x[i]+=$i} END{for(i in x)print x[i]}'> ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--CoverageHeatMap/Loci_Merged.coverage.cutsitesmath
+
+awk '$1==0{cnt++} END{print cnt}' ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--CoverageHeatMap/Loci_Merged.coverage.cutsitesmath
+
+> # of LOCI with no data for ALL: 288,319
+
+awk '$1==0{cnt++} END{print cnt}' ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--CoverageHeatMap/Loci_Merged.coverage.cutsitesmath
+
+cat ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I.bed | awk '$1 == pc{print $1,$2-pp} {pc=$1; pp=$3}' > ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I--Article--Ultra.CutSiteDistances.txt
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.mafs.gz | tail -n +2 | cut -f 1,2 > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--LD/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.LD.pos
+
+#### REAL COVERAGE CALCULATION ####
+
+## Here we calculate de average real coverage for each site based on the file COUNTS outputed by ANGSD: 
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.counts.gz | tail -n +2 | gawk ' {for (i=1;i<=NF;i++){a[i]+=$i;++count[i]}} END{ for(i=1;i<=NF;i++){print a[i]/count[i]}}' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris--Article--Ultra.labels - > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/RealCoverage/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra-RealCoverage.txt
+
+### MISSING DATA CALCULATION ###
+
+## Here we calculate the missing data proportions for each SAMPLE:
+
+# SNPs Genotype Likelihoods:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.beagle.gz | tail -n +2 | perl $SCRIPTS/scripts/call_geno.pl --skip 3 | cut -f 4- | awk '{ for(i=1;i<=NF; i++){ if($i==-1)x[i]++} } END{ for(i=1;i<=NF; i++) print i"\t"x[i] }' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris--Article--Ultra.labels - | awk '{print $1"\t"$3"\t"$3*100/26082}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/MissingDataCalc/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.GL-Missing.txt
+                         
+### MULTIDIMENSIONAL SCALING | ngsDist + get_PCA.R ###
+
+## Here are perform a multidimensional scaling anlyse on the genetic distance matrix created above:
+
+# To get distance matrix:
+
+xsbatch -c 43 --mem-per-cpu 2000 -J Dist_Corr --time 3-00 -- "ngsDist --n_threads 16 --geno ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.beagle.gz --pairwise_del --seed 47 --probs --n_ind 210 --n_sites 26082 --labels ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoCrupestris--Article.labels --out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--MDS/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.dist"
+
+# To perform MDS:
+
+tail -n +3 ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--MDS/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.dist | Rscript --vanilla --slave $SCRIPTS/scripts/get_PCA.R --no_header --data_symm -n 10 -m "mds" -o ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--MDS/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.mds
+
+# We locally plot these MDS results using the Rscript below:
+
+> PBGP--ToPlot_MDSResults.R
+
+### ESTIMATION OF INDIVIDUAL ANCESTRIES | ngsAdmix--v??? ###
+
+## Here we perform an analyse of estimation of individual ancestries:
+
+# With the GBS-WGS pairs:
+
+export N_REP=100
+
+for K in `seq -w 2 25`
+do 
+    echo $SCRIPTS/scripts/wrapper_ngsAdmix.sh -P 15 -debug 1 -likes ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.beagle.gz -K $K -minMaf 0 -tol 1e-6 -tolLike50 1e-3 -maxiter 10000 -o ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ngsAdmix/PBGP--GoodSamples_WithWGSs_NoCrupestris_SNPCalling--Article--Ultra.${K}
+
+done | xsbatch -c 15 --mem-per-cpu 256 -J ngsAdmix -R --time 10-00 --
+
+# We locally plot these ngsAdmic results using the Rscript below:
+
+> PBGP--ToPlot_ngsAdmixResults.R
+****************************************************************************************************
+
+###                                                ###
+# INFERENCE OF POPULATION SPLITS AND MIXTURES | GWAS #
+###                                                ###
+
+## To get specific BAM list -- ALL GOOD SAMPLES with WGS version of the WGS_GBS_WGS-GBS Trios, NO Ferals & NO ODD SAMPLES /// (207 SAMPLES / 159 GBS / 48 WGS):
+
+find ~/data/Pigeons/Analysis/PaleoMix_GBS/*.bam ~/data/Pigeons/Analysis/PaleoMix_Re-Sequencing/*.bam | grep -f ~/data/Pigeons/Analysis/Lists/ALL_Re-Seqed-GBSBreedPlates--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--BadSamples--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--NoOddSamplesNoFerals--Article.list | grep -v -f ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GBS_Pairs--Article.list > ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.list
+
+## SNP Calling, -MinMaf 0.005: 
+
+xsbatch -c 40 --mem-per-cpu 6000 -J PBGP_SNPs --time 5-00:00 --force -- $SCRIPTS/scripts/wrapper_angsd.sh -debug 2 -nThreads 40 -ref ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun.fasta -bam ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.list -sites ~/data/Pigeons/Reference/PBGP_FinalRun.EcoT22I_Extended_Merged_RemovedPossibleParalogs-g800--Article--Ultra.pos -rf ~/data/Pigeons/Reference/DanishTumbler_Dovetail_ReRun_ChrGreater1kb.id -remove_bads 1 -uniqueOnly 1 -baq 1 -C 50 -minMapQ 30 -minQ 20 -minInd $((207*95/100)) -doCounts 1 -GL 1 -doGlf 2 -doMajorMinor 1 -doMaf 1 -MinMaf 0.005 -SNP_pval 1e-6 -doPost 2 -doGeno 3 -doPlink 2 -geno_minDepth 3 -setMaxDepth $((207*275)) -dumpCounts 2 -postCutoff 0.95 -doHaploCall 1 -doVcf 1 -out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra
+
+> # of SNPs: 26,504
+
+#### REAL COVERAGE CALCULATION ####
+
+## Here we calculate de average real coverage for each site based on the file COUNTS outputed by ANGSD: 
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.counts.gz | tail -n +2 | gawk ' {for (i=1;i<=NF;i++){a[i]+=$i;++count[i]}} END{ for(i=1;i<=NF;i++){print a[i]/count[i]}}' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.labels - > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/RealCoverage/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra-RealCoverage.txt
+
+### MISSING DATA CALCULATION ###
+
+## Here we calculate the missing data proportions for each SAMPLE:
+
+# SNPs Genotype Likelihoods:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.beagle.gz | tail -n +2 | perl $SCRIPTS/scripts/call_geno.pl --skip 3 | cut -f 4- | awk '{ for(i=1;i<=NF; i++){ if($i==-1)x[i]++} } END{ for(i=1;i<=NF; i++) print i"\t"x[i] }' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.labels - | awk '{print $1"\t"$3"\t"$3*100/26504}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/MissingDataCalc/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.GL-Missing.txt
+
+# SNPs Genotyping Calling:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.geno.gz | cut -f 5- | awk '{ for(i=1;i<=NF; i++){ if($i==-1)x[i]++} } END{ for(i=1;i<=NF; i++) print i"\t"x[i] }' | paste ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.labels - | awk '{print $1"\t"$3"\t"$3*100/26504}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--Miscellaneous/MissingDataCalc/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.GC-Missing.txt
+****************************************************************************************************
+
+### INFERENCE OF POPULATION SPLITS | TreeMix--v1.13 ###
+
+## Firstly, we create an TreeMiX ANNOT file:
+
+cat ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.labels | awk '{split($0,a,"_"); print $1"\t"a[1]}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.annot
+
+## Then, we create convert the .GENO file into a .TREEMIX format:
+
+perl $SCRIPTS/scripts/geno2treemix.pl --geno ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.geno.gz --format angsd --skip_cols 4 --pop ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.annot | gzip --best > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.gz
+
+## Here we run TreeMix:
+
+for M in `seq 6 8`
+do 
+    echo $SCRIPTS/scripts/wrapper_treemix.sh -i ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.gz -k 100 -t 10 -noss -m $M -root Crupestris -global -o ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.${M}
+
+done | xsbatch -c 10 --mem-per-cpu 1024 -J TreeMix -R --max-array-jobs 11 --time 10-00 --
+
+## Here we generate a .POPORDER file:
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.gz | head -n 1 | perl -p -e 's/ /\n/g' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.poporder
+
+## Here we finally plot the results:
+
+ls -Sv ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.XXX.llik | perl -p -e 's/\.llik//g' | Rscript --vanilla --slave -e "source('$SOFT/treemix/v1.13/src/plotting_funcs.R'); h=18; w=h*2; x<-read.table('stdin')[,1]; pdf(height=h,width=w); layout(matrix(c(1,2),ncol=2),c(w/2,w/2),c(h)); for(i in x){plot_tree(i);plot_resid(i,'~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.poporder')}; dev.off()"; mv Rplots.pdf  ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--TreeMix/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.treemix.XXX.pdf
+****************************************************************************************************
+            
+### LINKAGE DISEQUILIBRIUM ###
+
+# To Remove C. rupestris:
+
+RUP_ID=`fgrep -n 'Crupestris_01-WGS' ~/data/Pigeons/PBGP/PBGP--Analyses/Lists/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals--Article--Ultra.list | cut -d ":" -f 1`
+
+zcat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.beagle.gz | cut --complement -f $((3*RUP_ID+1))-$((3*RUP_ID+3)) | gzip > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_NoCrupestris_SNPCalling--Article--Ultra.beagle.gz
+
+$SCRIPTS/appz/ngsTools/ngsLD/ngsLD --n_threads 14 --geno ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--ANGSDRuns/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_NoCrupestris_SNPCalling--Article--Ultra.beagle.gz --probs --n_ind 206 --n_sites 26504 --pos ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--LD/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.LD.pos --max_kb_dist 500 --min_maf 0.01 --out ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--LD/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_NoCrupestris_SNPCalling--Article--Ultra.LD.tsv
+
+# We locally plot these ngsAdmic results using the Rscript below:
+
+> PBGP--ToPlot_LDResults
+****************************************************************************************************
+
+### GWAS | GEMMA-v0.96 ###
+
+# To create a DOSAGE file:
+
+python ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP.dosage.py
+
+# To compute the relatedness matrix:
+
+gemma -g ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.dosage -gk 1 -p ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.pheno -o PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest -maf 0.01
+
+gemma -g ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.dosage -gk 1 -p ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering.pheno -o PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering -maf 0.01
+
+# Run Association Tests with Univariate Linear Mixed Models:
+
+gemma -lmm 4 -g ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.dosage -p ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.pheno -a ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.SNPAnnotation -k ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.cXX.txt -n 1 -o PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest
+
+gemma -lmm 4 -g ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.dosage -p ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering.pheno -a ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.SNPAnnotation -k ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering.cXX.txt -n 1 -o PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeatheting
+
+# To slightly modify the output:
+
+cut -f 1,2,3,13 ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.assoc.txt | awk '{print $2"\t"$1"\t"$3"\t"$4}' | tail -n +2 | sort -k 4,4 > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.Edited.assoc.txt
+
+cut -f 1,2,3,13 ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeatheting.assoc.txt | awk '{print $2"\t"$1"\t"$3"\t"$4}' | tail -n +2 | sort -k 4,4 > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeatheting.Edited.assoc.txt
+
+# Permutation with original GEMMA (permutation using one gemma run including all chrs and scaffolds)
+
+for B in `seq -w 1 100`
+do
+
+gemma -g ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.dosage -k ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.cXX.txt -a ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.SNPAnnotation -o PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_${B} -p ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.Permuted.pheno -n ${B} -lmm 4 -maf 0.01
+
+done
+
+screen -r 19226.pts-37.fend02
+
+for B in `seq -w 1 100`
+do
+
+gemma -g ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.dosage -k ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering.cXX.txt -a ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.SNPAnnotation -o PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_${B} -p ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering.Permuted.pheno -n ${B} -lmm 4 -maf 0.01
+
+done
+
+# To concatenate all the p-values:
+
+for i in PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_???.assoc.txt
+do
+    cut -f 1,2,3,13 $i > cut${i%-.assoc.}
+done
+
+for i in PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_???.assoc.txt
+do
+    cut -f 1,2,3,13 $i > cut${i%-.assoc.}
+done
+
+# To concatenate (make sure to remove the header)
+
+cp cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_001.assoc.txt cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_ALL.assoc.txt
+cat cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_0{02..09}.assoc.txt | grep -v rs >> cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_ALL.assoc.txt
+cat cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_0{10..99}.assoc.txt | grep -v rs >> cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_ALL.assoc.txt
+cat cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_100.assoc.txt | grep -v rs >> cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest-BS_ALL.assoc.txt
+
+cp cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_001.assoc.txt cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_ALL.assoc.txt
+cat cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_0{02..09}.assoc.txt | grep -v rs >> cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_ALL.assoc.txt
+cat cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_0{10..99}.assoc.txt | grep -v rs >> cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_ALL.assoc.txt
+cat cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_100.assoc.txt | grep -v rs >> cutPBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_FootFeathering-BS_ALL.assoc.txt
+
+# To get Scaffold Names:
+
+cut -f 2 ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/output/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra_HeadCrest.Edited.assoc.txt | uniq -c | awk '{print "\"" $2 "\""}' | echo $(cat -) > PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.ChrLabels.txt
+
+# Create SNPAnnotation File:
+
+cat ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.beagle | tail -n +2 | awk '{split($1,a,"_"); print $1 "\t" a[3] "\t" a[1] "_" a[2]}' > ~/data/Pigeons/PBGP/PBGP--Analyses/PBGP--GWAS/PBGP--GoodSamples_WithWGSs_NoOddSamplesNoFerals_SNPCalling--Article--Ultra.SNPAnnotation
+
+# We locally plot these GWAS results using the Rscript below:
+
+> PBGP--ToPlot_GWAS--Ultra.R
+****************************************************************************************************
